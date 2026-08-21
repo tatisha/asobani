@@ -3,7 +3,7 @@ import {
   LETTERS,
   audioLetterPath,
   audioWordPath,
-} from "./words.js";
+} from "./words.js?v=7";
 
 const startScreen = document.getElementById("start-screen");
 const gameScreen = document.getElementById("game-screen");
@@ -26,6 +26,8 @@ let drag = null;
 let busy = false;
 let queue = [];
 let index = 0;
+/** Once Help is pressed, keep remaining letters lit until the word is complete. */
+let hintLocked = false;
 
 const audioCache = new Map();
 /** @type {HTMLAudioElement | null} */
@@ -210,9 +212,21 @@ function applyLetterHints(needed) {
   return hintButtons;
 }
 
+function refreshLockedHints() {
+  if (!hintLocked || !state) return;
+  const needed = remainingNeededLetters();
+  if (needed.size === 0) {
+    hintLocked = false;
+    clearLetterHints();
+    return;
+  }
+  applyLetterHints(needed);
+}
+
 function loadRound() {
   busy = false;
   selectedLetter = null;
+  hintLocked = false;
   stopAllAudio();
   const item = currentWord();
   state = {
@@ -358,6 +372,7 @@ function onSlotTap(slotIndex) {
   if (state.filled[slotIndex]) {
     state.filled[slotIndex] = null;
     renderSlots();
+    refreshLockedHints();
     return;
   }
   if (!selectedLetter) {
@@ -377,9 +392,9 @@ function tryPlace(slotIndex, letter) {
   if (letter === expected) {
     state.filled[slotIndex] = letter;
     selectedLetter = null;
-    clearLetterHints();
     renderSlots();
     syncAlphabetSelection();
+    refreshLockedHints();
     coachEl.textContent = "კარგი!";
     if (state.filled.every(Boolean)) {
       onWordComplete();
@@ -436,6 +451,7 @@ function giveHint() {
   const needed = remainingNeededLetters();
   if (needed.size === 0) return;
 
+  hintLocked = true;
   selectedLetter = null;
   syncAlphabetSelection();
   const hintButtons = applyLetterHints(needed);
