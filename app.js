@@ -154,6 +154,7 @@ function renderSlots() {
 
 function renderAlphabet() {
   alphabetEl.innerHTML = "";
+  alphabetEl.classList.remove("hint-active");
   LETTERS.forEach((letter) => {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -161,15 +162,10 @@ function renderAlphabet() {
     btn.textContent = letter;
     btn.dataset.letter = letter;
     btn.setAttribute("aria-label", `ასო ${letter}`);
-    if (unusedCount(letter) <= 0 && state.letters.includes(letter)) {
-      // Still keep alphabet complete; do not disable unrelated letters.
-    }
     btn.addEventListener("pointerdown", (e) => onLetterPointerDown(e, letter, btn));
     btn.addEventListener("click", (e) => {
-      // click fires after pointerup; selection handled in pointer flow for drag
       if (drag?.moved) {
         e.preventDefault();
-        return;
       }
     });
     alphabetEl.appendChild(btn);
@@ -185,20 +181,33 @@ function syncAlphabetSelection() {
 }
 
 function clearLetterHints() {
-  alphabetEl.querySelectorAll(".letter.hint").forEach((btn) => {
-    btn.classList.remove("hint");
+  alphabetEl.classList.remove("hint-active");
+  alphabetEl.querySelectorAll(".letter").forEach((btn) => {
+    btn.classList.remove("hint", "dimmed");
   });
 }
 
-/** Letters still needed for empty slots (unique set). */
+/** Unique letters still required by empty slots. */
 function remainingNeededLetters() {
   /** @type {Set<string>} */
   const needed = new Set();
   if (!state) return needed;
-  state.letters.forEach((letter, i) => {
-    if (!state.filled[i]) needed.add(letter);
-  });
+  for (let i = 0; i < state.letters.length; i += 1) {
+    if (!state.filled[i]) needed.add(state.letters[i]);
+  }
   return needed;
+}
+
+function applyLetterHints(needed) {
+  alphabetEl.classList.add("hint-active");
+  const hintButtons = [];
+  alphabetEl.querySelectorAll(".letter").forEach((btn) => {
+    const isNeeded = needed.has(btn.dataset.letter);
+    btn.classList.toggle("hint", isNeeded);
+    btn.classList.toggle("dimmed", !isNeeded);
+    if (isNeeded) hintButtons.push(btn);
+  });
+  return hintButtons;
 }
 
 function loadRound() {
@@ -394,22 +403,24 @@ function giveHint() {
   const needed = remainingNeededLetters();
   if (needed.size === 0) return;
 
-  clearLetterHints();
   selectedLetter = null;
   syncAlphabetSelection();
-
-  const hintButtons = [];
-  alphabetEl.querySelectorAll(".letter").forEach((btn) => {
-    if (needed.has(btn.dataset.letter)) {
-      btn.classList.add("hint");
-      hintButtons.push(btn);
-    }
-  });
+  const hintButtons = applyLetterHints(needed);
 
   const list = [...needed].join(" · ");
-  coachEl.textContent = `მინიშნება: საჭირო ასოებია ${list}`;
+  coachEl.textContent = `დახმარება: აი საჭირო ასოები — ${list}`;
   speakUi("hint");
-  hintButtons[0]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  // Bring the alphabet into view and ensure every hinted letter is noticeable
+  alphabetEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  hintButtons.forEach((btn, i) => {
+    window.setTimeout(() => {
+      btn.classList.remove("hint-pop");
+      // force reflow for replayable pop
+      void btn.offsetWidth;
+      btn.classList.add("hint-pop");
+    }, i * 70);
+  });
 }
 
 startBtn.addEventListener("click", () => {
