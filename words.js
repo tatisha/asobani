@@ -205,7 +205,7 @@ export const WORDS = [
 export { LETTERS };
 
 // Bump when regenerating audio so browsers/phones don't keep old short clips.
-const AUDIO_VERSION = "v3-clear";
+const AUDIO_VERSION = "v4-names";
 
 export function audioLetterPath(letter) {
   return `./audio/letters/${letter.codePointAt(0).toString(16)}.mp3?${AUDIO_VERSION}`;
