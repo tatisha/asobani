@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ka">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#6ec8ff" />
+    <title>ასობანი — ქართული კითხვა</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@500;700;800&family=Noto+Serif+Georgian:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="sky" aria-hidden="true"></div>
+    <div class="hills" aria-hidden="true"></div>
+
+    <main class="app">
+      <section id="start-screen" class="screen start-screen">
+        <p class="brand">ასობანი</p>
+        <h1 class="tagline">სურათი, ასოები, სიტყვა</h1>
+        <p class="lede">
+          მოუსმინე ასოს და გადაიტანე სწორ ადგილას.
+        </p>
+        <button type="button" class="btn primary" id="start-btn">
+          დაწყება
+        </button>
+      </section>
+
+      <section id="game-screen" class="screen game-screen hidden" hidden>
+        <header class="topbar">
+          <p class="brand brand-small">ასობანი</p>
+          <div class="top-actions">
+            <button type="button" class="btn soft" id="speak-word-btn">ხმა</button>
+            <button type="button" class="btn soft" id="hint-btn">მინიშნება</button>
+            <button type="button" class="btn soft" id="skip-btn">შემდეგი</button>
+          </div>
+        </header>
+
+        <div class="picture-stage" id="picture-stage" aria-live="polite"></div>
+
+        <div class="slots" id="slots" role="list" aria-label="სიტყვის ასოები"></div>
+
+        <p class="coach" id="coach">შეეხე ასოს — გაიგონე ხმა — გადაიტანე ცარიელ ადგილას</p>
+
+        <div class="alphabet" id="alphabet" aria-label="ქართული ანბანი"></div>
+
+        <div class="progress" id="progress" aria-hidden="true"></div>
+      </section>
+
+      <div id="celebrate" class="celebrate hidden" hidden>
+        <p class="celebrate-text">ყოჩაღ!</p>
+        <p class="celebrate-word" id="celebrate-word"></p>
+      </div>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
