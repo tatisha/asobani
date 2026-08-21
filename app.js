@@ -239,9 +239,10 @@ function loadRound() {
 function onLetterPointerDown(event, letter, btn) {
   if (busy) return;
   if (event.button != null && event.button !== 0) return;
+  event.preventDefault();
 
-  selectedLetter = letter;
-  syncAlphabetSelection();
+  // Play sound immediately, but do NOT select yet —
+  // selecting on press makes short/failed drags feel sticky.
   speakLetter(letter);
 
   const rect = btn.getBoundingClientRect();
@@ -257,22 +258,31 @@ function onLetterPointerDown(event, letter, btn) {
     startY: event.clientY,
   };
 
+  btn.classList.add("pressing");
   btn.setPointerCapture(event.pointerId);
   btn.addEventListener("pointermove", onLetterPointerMove);
   btn.addEventListener("pointerup", onLetterPointerUp);
-  btn.addEventListener("pointercancel", onLetterPointerUp);
+  btn.addEventListener("pointercancel", onLetterPointerCancel);
 }
 
 function onLetterPointerMove(event) {
   if (!drag || event.pointerId !== drag.pointerId) return;
   const dx = event.clientX - drag.startX;
   const dy = event.clientY - drag.startY;
-  if (!drag.moved && Math.hypot(dx, dy) < 8) return;
+  // Slightly higher threshold so tiny finger jitter isn't a drag
+  if (!drag.moved && Math.hypot(dx, dy) < 12) return;
 
   if (!drag.moved) {
     drag.moved = true;
+    // Drag mode: clear selection so the letter doesn't stay "picked"
+    selectedLetter = null;
+    syncAlphabetSelection();
+    drag.originBtn.classList.remove("pressing");
+    drag.originBtn.classList.add("dragging");
+
     const ghost = drag.originBtn.cloneNode(true);
     ghost.classList.add("ghost", "dragging");
+    ghost.classList.remove("selected", "hint", "dimmed", "pressing", "hint-pop");
     ghost.style.width = `${drag.originBtn.offsetWidth}px`;
     ghost.style.height = `${drag.originBtn.offsetHeight}px`;
     document.body.appendChild(ghost);
@@ -290,34 +300,57 @@ function onLetterPointerMove(event) {
   });
 }
 
-function onLetterPointerUp(event) {
+function endLetterPointer(event, { cancelled = false } = {}) {
   if (!drag || event.pointerId !== drag.pointerId) return;
   const { letter, originBtn, moved, ghost } = drag;
 
-  originBtn.releasePointerCapture(event.pointerId);
+  try {
+    originBtn.releasePointerCapture(event.pointerId);
+  } catch {
+    /* already released */
+  }
   originBtn.removeEventListener("pointermove", onLetterPointerMove);
   originBtn.removeEventListener("pointerup", onLetterPointerUp);
-  originBtn.removeEventListener("pointercancel", onLetterPointerUp);
+  originBtn.removeEventListener("pointercancel", onLetterPointerCancel);
+  originBtn.classList.remove("pressing", "dragging");
   originBtn.style.opacity = "";
 
   slotsEl.querySelectorAll(".slot").forEach((s) => s.classList.remove("drop-target"));
-
   if (ghost) ghost.remove();
+  drag = null;
 
-  if (moved) {
-    const el = document.elementFromPoint(event.clientX, event.clientY);
-    const slot = el?.closest?.(".slot");
-    if (slot) {
-      tryPlace(Number(slot.dataset.index), letter);
-    }
-  } else {
-    // Tap only: keep selection for tap-to-slot
-    selectedLetter = letter;
+  if (cancelled) {
+    selectedLetter = null;
     syncAlphabetSelection();
-    coachEl.textContent = `აირჩიე ცარიელი ადგილი ასოსთვის „${letter}“`;
+    return;
   }
 
-  drag = null;
+  if (moved) {
+    // Drag gesture finished — never leave a sticky selection behind
+    selectedLetter = null;
+    syncAlphabetSelection();
+    const el = document.elementFromPoint(event.clientX, event.clientY);
+    const slot = el?.closest?.(".slot");
+    if (slot && !state.filled[Number(slot.dataset.index)]) {
+      tryPlace(Number(slot.dataset.index), letter);
+    } else {
+      coachEl.textContent = "გადაიტანე ასო ცარიელ ადგილას";
+    }
+    return;
+  }
+
+  // True tap (almost no movement): select for tap-to-slot
+  selectedLetter = letter;
+  syncAlphabetSelection();
+  coachEl.textContent = `აირჩიე ცარიელი ადგილი ასოსთვის „${letter}“`;
+}
+
+function onLetterPointerUp(event) {
+  endLetterPointer(event, { cancelled: false });
+}
+
+function onLetterPointerCancel(event) {
+  endLetterPointer(event, { cancelled: true });
 }
 
 function onSlotTap(slotIndex) {

@@ -276,7 +276,15 @@ body {
   box-shadow: 0 8px 0 rgba(33, 72, 51, 0.12), var(--shadow);
   cursor: grab;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
   transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+
+.letter.pressing {
+  transform: scale(1.04);
+  box-shadow: 0 10px 18px rgba(24, 70, 48, 0.22);
 }
 
 .letter:active,
