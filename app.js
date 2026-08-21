@@ -28,6 +28,9 @@ let queue = [];
 let index = 0;
 
 const audioCache = new Map();
+/** @type {HTMLAudioElement | null} */
+let activeAudio = null;
+let playGeneration = 0;
 
 function shuffle(list) {
   const arr = [...list];
@@ -38,23 +41,60 @@ function shuffle(list) {
   return arr;
 }
 
+function stopAllAudio() {
+  playGeneration += 1;
+  if (activeAudio) {
+    activeAudio.pause();
+    try {
+      activeAudio.currentTime = 0;
+    } catch {
+      /* ignore seek errors on fresh elements */
+    }
+    activeAudio = null;
+  }
+  for (const audio of audioCache.values()) {
+    audio.pause();
+    try {
+      audio.currentTime = 0;
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 function playAudio(src) {
   return new Promise((resolve) => {
+    stopAllAudio();
+    const generation = playGeneration;
+
     let audio = audioCache.get(src);
     if (!audio) {
       audio = new Audio(src);
+      audio.preload = "auto";
       audioCache.set(src, audio);
     }
+
     audio.pause();
-    audio.currentTime = 0;
+    try {
+      audio.currentTime = 0;
+    } catch {
+      /* ignore */
+    }
+
+    activeAudio = audio;
     const done = () => {
       audio.removeEventListener("ended", done);
       audio.removeEventListener("error", done);
+      if (generation !== playGeneration) {
+        resolve();
+        return;
+      }
+      if (activeAudio === audio) activeAudio = null;
       resolve();
     };
     audio.addEventListener("ended", done);
     audio.addEventListener("error", done);
-    audio.play().catch(() => resolve());
+    audio.play().catch(() => done());
   });
 }
 
@@ -144,9 +184,27 @@ function syncAlphabetSelection() {
   });
 }
 
+function clearLetterHints() {
+  alphabetEl.querySelectorAll(".letter.hint").forEach((btn) => {
+    btn.classList.remove("hint");
+  });
+}
+
+/** Letters still needed for empty slots (unique set). */
+function remainingNeededLetters() {
+  /** @type {Set<string>} */
+  const needed = new Set();
+  if (!state) return needed;
+  state.letters.forEach((letter, i) => {
+    if (!state.filled[i]) needed.add(letter);
+  });
+  return needed;
+}
+
 function loadRound() {
   busy = false;
   selectedLetter = null;
+  stopAllAudio();
   const item = currentWord();
   state = {
     word: item.word,
@@ -277,6 +335,7 @@ function tryPlace(slotIndex, letter) {
   if (letter === expected) {
     state.filled[slotIndex] = letter;
     selectedLetter = null;
+    clearLetterHints();
     renderSlots();
     syncAlphabetSelection();
     coachEl.textContent = "კარგი!";
@@ -332,20 +391,25 @@ function burstConfetti() {
 
 function giveHint() {
   if (busy || !state) return;
-  const empty = state.filled.findIndex((v) => !v);
-  if (empty < 0) return;
-  const letter = state.letters[empty];
-  selectedLetter = letter;
+  const needed = remainingNeededLetters();
+  if (needed.size === 0) return;
+
+  clearLetterHints();
+  selectedLetter = null;
   syncAlphabetSelection();
-  speakLetter(letter);
-  coachEl.textContent = `მინიშნება: შემდეგი ასოა „${letter}“`;
-  const btn = [...alphabetEl.querySelectorAll(".letter")].find(
-    (el) => el.dataset.letter === letter,
-  );
-  if (btn) {
-    btn.classList.add("selected");
-    btn.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
+
+  const hintButtons = [];
+  alphabetEl.querySelectorAll(".letter").forEach((btn) => {
+    if (needed.has(btn.dataset.letter)) {
+      btn.classList.add("hint");
+      hintButtons.push(btn);
+    }
+  });
+
+  const list = [...needed].join(" · ");
+  coachEl.textContent = `მინიშნება: საჭირო ასოებია ${list}`;
+  speakUi("hint");
+  hintButtons[0]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 startBtn.addEventListener("click", () => {
